@@ -1,11 +1,12 @@
+from re import escape
 from typing import BinaryIO
 from sys import maxsize
 import logging
-import re
-import multiprocessing
+import regex as re
+import multiprocessing as mp
 import os
 
-GPT2_REGEX_PATTERN = r"'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?[0-9]+| ?[^\s\w]+|\s+(?!\S)|\s+"
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 SPECIAL_TOKENS: dict[str, bytes] = {"endoftext": b"<|endoftext|>"}
 
 logging.basicConfig(
@@ -112,8 +113,46 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
-def serialized_pre_tokenize(chunk: str):
-    pass
+def pre_tokenize_unit(input_path:str, start:int, end:int, special_tokens:list[str])->dict[tuple[bytes,...], int]:
+    freqs = {}
+    escaped_tokens = [re.escape(token) for token in special_tokens]
+    special_tokens_pattern = "|".join(escaped_tokens)
+    logger.debug(f"special_tokens_patterns:{special_tokens_pattern}")
+    with open(input_path, "rb") as ff:
+        ff.seek(start)
+        content = ff.read(end-start)
+        content_str = content.decode("utf-8")
+        assert len(content) == end-start
+        for match in re.finditer(special_tokens_pattern, content_str):
+            plain_text_chunk = content_str[start:match.start()]
+            start = match.end()
+            if(plain_text_chunk==''):
+                continue
+            for pat_match in re.finditer(PAT, plain_text_chunk):
+                encoded = pat_match.group().encode("utf-8")
+                byte_tuple =tuple(encoded[i:i+1] for i in range(len(encoded)))
+                freqs[byte_tuple] = freqs.get(byte_tuple, 0)+1
+
+    return freqs
+            
+        
+def merge_freqs(freqs:list[dict[tuple[bytes, ...], int]]):
+    result = {}
+    for freq in freqs:
+        for item in freq:
+            result[item] = dict.get(result, item, 0) + freq[item]
+    logger.info("merge freqs completed!")
+    for k, v in list(result.items())[:10]:
+        token = b"".join(k).decode("utf-8", errors="replace")
+        logger.debug(f"    {token!r}: {v}")
+
+    return result
+
+        
+                
+
+
+    
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """train a bpe tokenizer
@@ -130,23 +169,40 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> tu
     try:
         # 0. Open and read dataset
         with open(input_path, "rb") as f:
+            logger.info(f"Successfully opened file: {input_path} !")
             # 1. Initialize vocabulary
-            for i in range(255):
+            for i in range(256):
                 vocab[i] = bytes([i])
             vocab[256] = SPECIAL_TOKENS["endoftext"]
             nextid: int = 257;
             # 2. Parallelized Pre-tokenization
-            boundaries:list[int] = find_chunk_boundaries(f)
+            boundaries:list[int] = find_chunk_boundaries(f, 16)
             chunks: list[bytes] = []
+            tasks = []
+            pre_tokenized_text = {}
             for start, end in zip(boundaries[:-1], boundaries[1:]):
                 f.seek(start)
                 chunk = f.read(end-start).decode("utf-8", errors="ignore")
-                logger.debug(chunk[-100:])
+                logger.debug(f"{chunk[:100]}\n...\n{chunk[-100:]}")
                 logger.debug("================ SEPARATOR ===================")
                 logger.debug("")
+                tasks.append((input_path, start, end, special_tokens))
+            logger.info(f"tasks chunking completed: {tasks[:3]}...{tasks[-3:]}")
+            with mp.Pool(processes=int(os.getenv("NUM_WORKERS", 4))) as pool:
+                results = pool.starmap(pre_tokenize_unit, tasks)
+
+                logger.info("parallelized pre-tokenization completed!")
+
+                for idx, result in enumerate(results[:3]):
+                    logger.info(f"Worker {idx} result preview:")
+                    for k, v in list(result.items())[:10]:
+                        token = b"".join(k).decode("utf-8", errors="replace")
+                        logger.debug(f"    {token!r}: {v}")
+
+            merge_freqs(results)
+                            
 
             
-
             
 
 
@@ -158,4 +214,5 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> tu
 
     return vocab, merges
 
-train_bpe("data/TinyStoriesV2-GPT4-valid.txt", 300, ["<|endoftext|>"])
+if __name__=="__main__":
+    train_bpe("data/TinyStoriesV2-GPT4-valid.txt", 300, ["<|endoftext|>"])
