@@ -1,11 +1,12 @@
+from logging import Logger
 import os
-from typing import BinaryIO
-
+from typing import BinaryIO, Optional
 
 def find_chunk_boundaries(
     file: BinaryIO,
-    desired_num_chunks: int,
-    split_special_token: bytes,
+    desired_num_chunks: int = 4,
+    split_special_token: bytes = b"<|endoftext|>",
+    logger: Optional[Logger] = None
 ) -> list[int]:
     """
     Chunk the file into parts that can be counted independently.
@@ -19,6 +20,10 @@ def find_chunk_boundaries(
     file.seek(0)
 
     chunk_size = file_size // desired_num_chunks
+    if logger:
+        logger.debug(f"file_size = {file_size}")
+        logger.debug(f"chunk_size = {chunk_size}")
+        logger.debug(f"special_token = {split_special_token.decode("utf-8")}")
 
     # Initial guesses for chunk boundary locations, uniformly spaced
     # Chunks start on previous index, don't include last index
@@ -27,6 +32,7 @@ def find_chunk_boundaries(
 
     mini_chunk_size = 4096  # Read ahead by 4k bytes at a time
 
+    # starting from the chunk_boundary with index 1, and align it with the next split_special_token within the range of chunk size next to it (if any)
     for bi in range(1, len(chunk_boundaries) - 1):
         initial_position = chunk_boundaries[bi]
         file.seek(initial_position)  # Start at boundary guess
@@ -47,16 +53,3 @@ def find_chunk_boundaries(
 
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
-
-
-## Usage
-with open(..., "rb") as f:
-    num_processes = 4
-    boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
-
-    # The following is a serial implementation, but you can parallelize this
-    # by sending each start/end pair to a set of processes.
-    for start, end in zip(boundaries[:-1], boundaries[1:]):
-        f.seek(start)
-        chunk = f.read(end - start).decode("utf-8", errors="ignore")
-        # Run pre-tokenization on your chunk and store the counts for each pre-token
