@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
+from pathlib import Path
 from typing import IO, Any, BinaryIO
 
 import numpy.typing as npt
@@ -9,6 +10,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
+from cs336_basics import tokenization
 
 def run_linear(
     d_in: int,
@@ -589,4 +591,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    
+    return tokenization.train_bpe(Path(input_path), vocab_size, [special_token.encode() for special_token in special_tokens], None)

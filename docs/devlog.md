@@ -85,10 +85,12 @@ task格式：`(path_to_dataset, start, end, special_tokens)`
   print('|'.join(map(re.escape, sorted(operators, reverse=True))))
   ```
 
-### Merges
+#### Merges
 
 通过frequency table找出需要被合并的pair
 
-    
+最终输出一个`dict[bytes, int]
 
 #### 优化
+
+TODO

@@ -1,12 +1,15 @@
 import logging
 from re import DEBUG
+from tokenize import Special
 from typing import Optional
-from chunking import find_chunk_boundaries
+from .chunking import find_chunk_boundaries
 import multiprocessing as mp
 import os
 import regex as re
-from pretokenization import pretokenize_single_chunk, parallelized_pretokenize
+from .pretokenization import pretokenize_single_chunk, parallelized_pretokenize
 from pathlib import Path
+from .bpe import bpe
+import argparse
 
 # configure logger
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -20,7 +23,7 @@ SPECIAL_TOKENS = [b"<|endoftext|>"]
 
 logger = logging.getLogger(__name__)
 
-def train_bpe(file_path: Path, vocab_size: int, special_tokens: list[bytes], logger: Optional[logging.Logger]) ->dict[tuple[bytes, ...], int]:
+def train_bpe(file_path: Path, vocab_size: int, special_tokens : list[bytes] = SPECIAL_TOKENS, logger: Optional[logging.Logger] = None) ->tuple[dict[int, bytes], list[tuple[bytes, bytes]]] :
     """train a bpe tokenizer
     Args: 
         input_path: Path to the training corpus
@@ -33,29 +36,19 @@ def train_bpe(file_path: Path, vocab_size: int, special_tokens: list[bytes], log
     vocab: dict[int, bytes] = {}
     merges: list[tuple[bytes, ...]] = []
     try:
-        # 0. Open and read dataset
         with open(file_path, "rb") as f:
             if logger:
                 logger.info(f"Successfully opened file: {file_path} !")
-            # 1. Initialize vocabulary
-            for i in range(256):
-                vocab[i] = bytes([i])
-            for i, special_token in enumerate(special_tokens):
-                vocab[256+i] = special_token
-            # 2. Parallelized Pre-tokenization
             pre_tokenized = parallelized_pretokenize(file_path, PAT, SPECIAL_TOKENS, logger)
-            return pre_tokenized
+            return bpe(vocab_size, special_tokens, pre_tokenized, logger)
+
     except FileNotFoundError:
         print(f"file didn't exist: {file_path}")
-    except PermissionError:
-        print(f"no permission to read file: {file_path}")
-    return {}
+    empty_result:tuple[dict[int, bytes], list[tuple[bytes, bytes]]] = ({}, []) 
+    return empty_result
 
 def readable_freq(freq: dict[tuple[bytes, ...], int])->dict[str, int]:
-    return {bytes(i).decode():j for i, j in freq.items()}
-
-if __name__ == "__main__":
-    print(readable_freq(train_bpe(Path("data/owt_valid.txt"), 256, SPECIAL_TOKENS, logger)))
+    return {b"".join(i).decode():j for i, j in freq.items()}
 
 
 

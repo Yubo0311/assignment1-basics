@@ -3,8 +3,9 @@ import os
 from pathlib import Path
 from typing import BinaryIO, Optional
 import regex as re
-from chunking import find_chunk_boundaries
+from .chunking import find_chunk_boundaries
 import multiprocessing as mp
+from collections import Counter
 
 def pretokenize_single_chunk(
     file_path: Path, start: int, end: int, pattern: re.Pattern[str], special_tokens: list[bytes], logger: Optional[Logger]
@@ -35,7 +36,7 @@ def pretokenize_single_chunk(
             return {}
 
         # get content string
-        freq = {}
+        freq = Counter()
         file.seek(start)
         chunk_bytes :bytes = file.read(end-start)
         content = chunk_bytes.decode("utf-8")
@@ -43,10 +44,7 @@ def pretokenize_single_chunk(
         # split by special token
         special_token_pattern = "|".join(re.escape(special_token.decode("utf-8")) for special_token in special_tokens)
         for segment in re.split(special_token_pattern, content):
-            for match in re.finditer(pattern, segment):
-                start, end = match.span()
-                key = tuple(match.group().encode())
-                freq[key] = freq.get(key, 0)+1
+            freq.update(Counter(tuple(bytes([b]) for b in match.group().encode()) for match in re.finditer(pattern, segment)))
 
     return freq
 
@@ -75,7 +73,7 @@ def parallelized_pretokenize(
             logger.info(f"tasks chunking completed")
         with mp.Pool(processes=int(os.getenv("NUM_WORKERS", 4))) as pool:
             results = pool.starmap(pretokenize_single_chunk, tasks)
-            result:dict[bytes, int] = {}
+            result = Counter()
             for i in results:
                 result.update(i)
             return result
