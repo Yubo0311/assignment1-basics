@@ -21,5 +21,5 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--logging", action='store_true', help='Enable DEBUG output')
     args = parser.parse_args()
     logger = logging.getLogger(__name__)
-    print(train_bpe(Path(args.filename), args.count, logger = logger))
+    print(train_bpe(Path(args.filename), args.count, logger = None))
 

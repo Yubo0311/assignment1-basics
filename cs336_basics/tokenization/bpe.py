@@ -19,6 +19,8 @@ def update_freq(freq:dict[tuple[bytes, ...], int], pair: tuple[bytes, bytes], ca
     new_freq = {}
     pair_bytes = b"".join(pair)
     for key in candidate_keys:
+        if key not in freq:
+            continue
         # scan the whole segment
         head = 0
         tail = 0
@@ -88,10 +90,10 @@ def bpe(vocab_size:int, special_tokens: list[bytes], freq:dict[tuple[bytes, ...]
 
 
     # start 
-    for id in tqdm.trange(len(vocab), vocab_size):
-        # count byte pair
-        pair_to_segment : dict[tuple[bytes, bytes], set[tuple[bytes, ...]]] = {}
+    pair_to_segment : dict[tuple[bytes, bytes], set[tuple[bytes, ...]]] = {}
+    for id in range(len(vocab), vocab_size):
         pair_freqs = Counter()
+        # count byte pair
         for key, value in freq.items():
             for pair in zip(key[:-1], key[1:]):
                 pair_freqs[pair] += value
@@ -109,6 +111,7 @@ def bpe(vocab_size:int, special_tokens: list[bytes], freq:dict[tuple[bytes, ...]
         vocab[id] = pair_bytes
         vocab_to_id[pair_bytes] = id
 
+        
         update_freq(freq, max_pair, pair_to_segment[max_pair], logger)
     
     return (vocab, merges)

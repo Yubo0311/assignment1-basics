@@ -33,6 +33,7 @@ def train_bpe(file_path: Path, vocab_size: int, special_tokens : list[bytes] = S
         vocab: The tokenizer vocabulary, a mapping from int (token ID) to bytes.
         merges: A list of BPE merges produced from training. Each list item is a tuple of bytes (<token1> , <token2>).
     """
+
     vocab: dict[int, bytes] = {}
     merges: list[tuple[bytes, ...]] = []
     try:
