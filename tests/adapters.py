@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import einx
 import os
 from collections.abc import Iterable
 from pathlib import Path
@@ -10,7 +11,9 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics import tokenization
+from cs336_basics import tokenizer
+from cs336_basics import transformer
+
 
 def run_linear(
     d_in: int,
@@ -31,7 +34,9 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    linear = transformer.Linear(d_in, d_out, device = torch.device("cpu"), dtype = torch.float32)
+    linear.load_state_dict({"weights":weights})
+    return linear.forward(in_features)
 
 
 def run_embedding(
@@ -53,7 +58,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    embedding = transformer.Embedding(vocab_size, d_model)
+    embedding.load_state_dict({"weights":einx.id("vocab_size d_model->d_model vocab_size",weights)})
+    return embedding.forward(token_ids)
 
 
 def run_swiglu(
@@ -380,7 +387,10 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rms_norm = transformer.RMSNorm(d_model, eps)
+    rms_norm.load_state_dict({"weights":weights})
+    return rms_norm.forward(in_features)
+
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -561,7 +571,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    return tokenization.tokenizer(vocab, merges, special_tokens)
+    return tokenizer.Tokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
@@ -592,4 +602,4 @@ def run_train_bpe(
                 Merges are ordered by order of creation.
     """
      
-    return tokenization.train_bpe(Path(input_path), vocab_size, [special_token.encode() for special_token in special_tokens], None)
+    return tokenizer.train_bpe(Path(input_path), vocab_size, [special_token.encode() for special_token in special_tokens], None)

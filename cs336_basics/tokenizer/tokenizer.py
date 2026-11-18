@@ -1,6 +1,6 @@
 import regex as re
 from typing import Iterator, Iterable
-class tokenizer:
+class Tokenizer:
     def __init__(
             self,
             vocab: dict[int, bytes],

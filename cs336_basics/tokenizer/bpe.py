@@ -3,7 +3,7 @@ from queue import PriorityQueue
 import logging
 from typing import Optional
 import tqdm
-from .tokenizer import tokenizer
+from .tokenizer import Tokenizer
 
 def update_freq(freq:dict[tuple[bytes, ...], int], pair: tuple[bytes, bytes], candidate_keys:set[tuple[bytes, ...]], logger: Optional[logging.Logger]) -> dict[tuple[bytes, ...], int]:
     """update frequency table, merging the input pair
