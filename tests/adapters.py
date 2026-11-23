@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import IO, Any, BinaryIO
 
+from numpy import dtype
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
@@ -92,7 +93,11 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = transformer.activation.SwiGLU(d_model, d_ff)
+    swiglu.load_state_dict({"linear1.weights":w1_weight,
+                            "linear2.weights":w2_weight,
+                            "linear3.weights":w3_weight})
+    return swiglu.forward(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -113,7 +118,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return transformer.scaled_dot_attention(Q, K, V, mask)
 
 
 def run_multihead_self_attention(
@@ -147,7 +152,9 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    attn = transformer.Multihead_self_attention(d_model, num_heads)
+    return attn.forward(in_features)
+
 
 
 def run_multihead_self_attention_with_rope(
@@ -187,7 +194,8 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    attn = transformer.Multihead_self_attention(d_model, num_heads, max_seq_len, theta)
+    return attn.forward(in_features, token_positions)
 
 
 def run_rope(
@@ -209,7 +217,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = transformer.RoPE(theta, d_k, max_seq_len)
+    return rope.forward(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
@@ -443,7 +452,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+    return transformer.softmax(in_features, dim)
 
 
 def run_cross_entropy(
