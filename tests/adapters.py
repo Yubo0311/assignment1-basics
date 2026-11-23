@@ -10,7 +10,7 @@ from numpy import dtype
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
-from torch import Tensor
+from torch import Tensor, device
 
 from cs336_basics import tokenizer
 from cs336_basics import transformer
@@ -153,6 +153,10 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     attn = transformer.Multihead_self_attention(d_model, num_heads)
+    attn.Q.load_state_dict({"weights":q_proj_weight})
+    attn.K.load_state_dict({"weights":k_proj_weight})
+    attn.V.load_state_dict({"weights":v_proj_weight})
+    attn.O.load_state_dict({"weights":o_proj_weight})
     return attn.forward(in_features)
 
 
@@ -195,6 +199,10 @@ def run_multihead_self_attention_with_rope(
         implementation with the given QKV projection weights and input features.
     """
     attn = transformer.Multihead_self_attention(d_model, num_heads, max_seq_len, theta)
+    attn.Q.load_state_dict({"weights":q_proj_weight})
+    attn.K.load_state_dict({"weights":k_proj_weight})
+    attn.V.load_state_dict({"weights":v_proj_weight})
+    attn.O.load_state_dict({"weights":o_proj_weight})
     return attn.forward(in_features, token_positions)
 
 
@@ -291,7 +299,25 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    tr_block = transformer.Transformer_block(d_model, num_heads, d_ff, max_seq_len, theta)
+    tr_block.multi_head_self_attn.load_state_dict({
+        "Q.weights":weights["attn.q_proj.weight"],
+        "K.weights":weights["attn.k_proj.weight"],
+        "V.weights":weights["attn.v_proj.weight"],
+        "O.weights":weights["attn.output_proj.weight"]
+    })
+    tr_block.rms_1.load_state_dict({
+        "weights":weights["ln1.weight"]
+    })
+    tr_block.rms_2.load_state_dict({
+        "weights":weights["ln2.weight"]
+    })
+    tr_block.ffn.load_state_dict({
+        "linear1.weights":weights["ffn.w1.weight"],
+        "linear2.weights":weights["ffn.w2.weight"],
+        "linear3.weights":weights["ffn.w3.weight"]
+    })
+    return tr_block.forward(in_features)
 
 
 def run_transformer_lm(
