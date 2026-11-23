@@ -63,7 +63,7 @@ class Multihead_self_attention(nn.Module):
             Ks = self.key_rope.forward(Ks, token_positions)
             Qs = self.query_rope.forward(Qs, token_positions)
         attn_values = scaled_dot_attention(Qs, Ks, Vs,  ~torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool), diagonal=1))
-        return einx.id("... num_heads seq_len d_head -> ... seq_len (num_heads d_head)",attn_values)
+        return self.O.forward(einx.id("... num_heads seq_len d_head -> ... seq_len (num_heads d_head)",attn_values))
 
 
 

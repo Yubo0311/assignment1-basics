@@ -27,18 +27,18 @@ class RoPE(nn.Module):
         cos = self.cos_theta[token_positions]
         sin = self.sin_theta[token_positions]
         x_even_rot = einx.multiply(
-            "batch seq half_d, seq half_d -> batch seq half_d",
+            "p... seq half_d, q... seq half_d -> p... seq half_d",
             x_even,
             cos) - einx.multiply(
-            "batch seq half_d, seq half_d -> batch seq half_d",
+            "p... seq half_d, q... seq half_d -> p... seq half_d",
             x_odd,
             sin
             )
         x_odd_rot = einx.multiply(
-            "batch seq half_d, seq half_d -> batch seq half_d",
+            "p... seq half_d, q... seq half_d -> p... seq half_d",
             x_odd,
             cos) + einx.multiply(
-            "batch seq half_d, seq half_d -> batch seq half_d",
+            "p... seq half_d, q... seq half_d -> p... seq half_d",
             x_even,
             sin
             )
