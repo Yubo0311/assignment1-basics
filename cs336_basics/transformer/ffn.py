@@ -30,16 +30,16 @@ class SwiGLU(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_ff =  ceil(d_model*3/8)*64 if d_ff == -1 else d_ff
-        self.linear1 = Linear(d_model, self.d_ff, device, dtype)
-        self.linear2 = Linear(self.d_ff, d_model, device, dtype)
-        self.linear3 = Linear(d_model, self.d_ff, device, dtype)
+        self.w1 = Linear(d_model, self.d_ff, device, dtype)
+        self.w2 = Linear(self.d_ff, d_model, device, dtype)
+        self.w3 = Linear(d_model, self.d_ff, device, dtype)
         self.silu = SiLU()
 
     def forward(self, x:Tensor)-> Tensor:
-        return self.linear2.forward(
+        return self.w2.forward(
             einx.multiply(
                 "... a, ... a -> ... a",
-                self.silu.forward(self.linear1.forward(x)),
-                self.linear3.forward(x)
+                self.silu.forward(self.w1.forward(x)),
+                self.w3.forward(x)
             )
         )

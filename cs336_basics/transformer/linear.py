@@ -17,12 +17,9 @@ class Linear(torch.nn.Module):
         std = sqrt(var)
         w = torch.empty([d_out, d_in], device = device, dtype = dtype)
         torch.nn.init.trunc_normal_(w, mean=0, std=std, a = -3*std, b = 3*std)
-        self.weights = torch.nn.Parameter(w)
-        return
-
-       
+        self.weight = torch.nn.Parameter(w)
         
     def forward(self, x: torch.Tensor)-> torch.Tensor :
-        logits = einx.dot("... [d_in], d_out [d_in] -> ... d_out", x, self.weights)
+        logits = einx.dot("... [d_in], d_out [d_in] -> ... d_out", x, self.weight)
         return logits
 

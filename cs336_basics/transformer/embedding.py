@@ -1,6 +1,7 @@
 import einx
 from typing import Optional
 from torch import nn, Tensor
+from jaxtyping import Int, Float
 import torch
 class Embedding(nn.Module):
     def __init__(
@@ -13,11 +14,10 @@ class Embedding(nn.Module):
         super().__init__()
         d_out = embedding_dim
         d_in = num_embeddings
-        weights = torch.empty([d_out, d_in], device = device, dtype = dtype)
-        nn.init.trunc_normal_(weights, mean=0, std=1, a = -3, b = 3)
-        self.weights = nn.Parameter(weights)
+        weight = torch.empty([d_in,d_out], device = device, dtype = dtype)
+        nn.init.trunc_normal_(weight, mean=0, std=1, a = -3, b = 3)
+        self.weight = nn.Parameter(weight)
 
-    def forward(self, token_ids: Tensor)->Tensor:
-        embeddings = self.weights[:, token_ids] # (embedding_dim, batch_num, seq_len)
-        embeddings = einx.id("embedding_dim batch_num seq_len -> batch_num seq_len embedding_dim", embeddings)
+    def forward(self, token_ids: Int[Tensor, " ..."])->Float[Tensor, " ... d_model"]:
+        embeddings = self.weight[token_ids] 
         return embeddings

@@ -45,25 +45,25 @@ class Multihead_self_attention(nn.Module):
         self.query_rope = None
         self.key_rope = None
         assert num_heads*self.d_k == d_model
-        self.Q = Linear(d_model, d_model, device, dtype)
-        self.K = Linear(d_model, d_model, device, dtype)
-        self.V = Linear(d_model, d_model, device, dtype)
+        self.q_proj = Linear(d_model, d_model, device, dtype)
+        self.k_proj = Linear(d_model, d_model, device, dtype)
+        self.v_proj = Linear(d_model, d_model, device, dtype)
         if max_seq_len is not None and theta is not None:
             self.enable_rope = True
             self.query_rope = RoPE(theta, self.d_k, max_seq_len, device)
             self.key_rope = RoPE(theta, self.d_v, max_seq_len, device)
-        self.O = Linear(d_model, d_model, device, dtype)
+        self.output_proj = Linear(d_model, d_model, device, dtype)
 
     def forward(self,x:Float[Tensor, "... d_model"], token_positions: Optional[Tensor] = None) -> Float[Tensor, "... d_model"]:
         seq_len = x.shape[-2]
-        Qs = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.Q.forward(x), num_heads = self.num_heads)
-        Ks = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.K.forward(x), num_heads = self.num_heads)
-        Vs = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.V.forward(x), num_heads = self.num_heads)
+        Qs = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.q_proj.forward(x), num_heads = self.num_heads)
+        Ks = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.k_proj.forward(x), num_heads = self.num_heads)
+        Vs = einx.id("... seq_len (num_heads d_head) ->  ... num_heads seq_len d_head" , self.v_proj.forward(x), num_heads = self.num_heads)
         if token_positions is not None and self.key_rope is not None:
             Ks = self.key_rope.forward(Ks, token_positions)
             Qs = self.query_rope.forward(Qs, token_positions)
         attn_values = scaled_dot_attention(Qs, Ks, Vs,  ~torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool), diagonal=1))
-        return self.O.forward(einx.id("... num_heads seq_len d_head -> ... seq_len (num_heads d_head)",attn_values))
+        return self.output_proj.forward(einx.id("... num_heads seq_len d_head -> ... seq_len (num_heads d_head)",attn_values))
 
 
 

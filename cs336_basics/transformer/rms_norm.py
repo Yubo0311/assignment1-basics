@@ -24,7 +24,7 @@ class RMSNorm(nn.Module):
         self.eps = eps
         self.dtype = dtype
         self.device = device
-        self.weights = nn.Parameter(torch.ones(size = (d_model,) ,dtype = dtype, device = device))
+        self.weight = nn.Parameter(torch.ones(size = (d_model,) ,dtype = dtype, device = device))
 
     def forward(self, x: Tensor)->Tensor:
         in_dtype = x.dtype
@@ -37,5 +37,5 @@ class RMSNorm(nn.Module):
         einx_layer_rms_norm = einx.torch.adapt_with_vmap(layer_rms_norm)
         rms_x = einx_layer_rms_norm("batch_size seq_len [d_model] -> batch_size seq_len", x)
         x = einx.divide("batch_size seq_len d_model, batch_size seq_len -> batch_size seq_len d_model", x, rms_x)
-        result = einx.multiply("batch_size seq_len d_model, d_model -> batch_size seq_len d_model", x, self.weights)
+        result = einx.multiply("batch_size seq_len d_model, d_model -> batch_size seq_len d_model", x, self.weight)
         return result.to(in_dtype)
